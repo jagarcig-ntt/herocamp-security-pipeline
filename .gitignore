@@ -1,0 +1,3 @@
+security-report*.md
+!ejemplos/security-report.md
+node_modules/
