@@ -13,6 +13,8 @@ Se creó para la sesión de seguridad de AI PM Pro (The Hero Camp), del 10 de di
 
 - **Necesitas una cuenta de Claude con acceso a Claude Code.** Cada revisión cuenta en el límite de uso de tu cuenta.
 - **Los agentes envían a Anthropic los ficheros que leen.** No lo uses con un proyecto si no tienes permiso para hacerlo.
+- **Revisa solo proyectos tuyos,** o con permiso de quien los lleva.
+- **No publiques el informe:** dice dónde están los fallos. No lo subas a un repositorio público ni lo pegues en un chat de grupo. Si lo lanzas desde la carpeta de tu proyecto, borra `security-report.md` antes de guardar los cambios en git.
 - **No sustituye a una auditoría profesional.** Puede equivocarse o no ver un fallo.
 
 ## Qué revisa cada agente
@@ -54,6 +56,8 @@ bash auditar.sh ../mi-proyecto
 # Un solo agente (1, 2, 3 o 4)
 bash auditar.sh ../mi-proyecto --familia 2
 ```
+
+**Si tu repositorio es privado,** descárgalo en tu ordenador y pasa la carpeta. Con la dirección de un repositorio privado no se ha probado.
 
 El informe se guarda como `security-report.md` en la carpeta desde la que lo lanzas. **Si ya había uno, lo sustituye.** Con `--familia 2`, se llama `security-report-f2.md`.
 
