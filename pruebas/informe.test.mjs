@@ -19,6 +19,15 @@ test("lee la respuesta de un agente y ordena por gravedad", () => {
   assert.deepEqual(hallazgos.map((x) => x.severity), ["CRITICAL", "MEDIUM"]);
 });
 
+test("prefiere la respuesta validada por Claude Code", () => {
+  const salida = JSON.stringify({ is_error: false, result: "roto {", structured_output: { family: 1, findings: [h()] } });
+  assert.equal(leerFamilia(salida, 1).hallazgos.length, 1);
+  const otra = JSON.stringify({ is_error: false, result: "", structured_output: { family: 2, findings: [] } });
+  assert.ok(leerFamilia(otra, 1).error);
+  const conError = JSON.stringify({ is_error: true, structured_output: { family: 1, findings: [] } });
+  assert.ok(leerFamilia(conError, 1).error);
+});
+
 test("sin hallazgos", () => {
   const f = { numero: 1, ...leerFamilia(agente(1, []), 1) };
   assert.equal(recomendacion([f]), "✅ SIN HALLAZGOS GRAVES");

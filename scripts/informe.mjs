@@ -59,7 +59,9 @@ export function leerFamilia(contenido, numero) {
   }
   if (salida?.is_error) return { error: "el agente ha terminado con un error" };
   let datos = salida;
-  if (typeof salida?.result === "string") {
+  if (salida?.structured_output) {
+    datos = salida.structured_output;
+  } else if (typeof salida?.result === "string") {
     const inicio = salida.result.indexOf("{");
     const fin = salida.result.lastIndexOf("}");
     try {
@@ -144,6 +146,13 @@ function principal() {
     return i > 0 ? process.argv[i + 1] : undefined;
   };
   const [entrada, salida, proyecto] = ["entrada", "salida", "proyecto"].map(arg);
+  const validar = arg("validar");
+  if (validar) {
+    // Lo usa auditar.sh para decidir si hace falta un segundo intento.
+    const { error } = leerFamilia(readFileSync(validar, "utf8"), Number(arg("familias")));
+    if (error) console.log(error);
+    process.exit(error ? 1 : 0);
+  }
   const numeros = (arg("familias") ?? "1,2,3,4").split(",").map(Number);
   if (!entrada || !salida || !proyecto || !numeros.every((n) => FAMILIAS[n])) {
     console.error("Uso: node informe.mjs --entrada <carpeta> --salida <informe.md> --proyecto <nombre> [--familias 1,2,3,4]");

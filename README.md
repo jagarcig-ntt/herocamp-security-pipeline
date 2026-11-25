@@ -99,6 +99,7 @@ El informe que debería salir se parece a [este ejemplo](ejemplos/security-repor
 |---|---|
 | `falta Claude Code` o `falta Node.js` | Instálalo, cierra la terminal y ábrela de nuevo |
 | Los cuatro agentes fallan | Escribe `claude` y comprueba que has iniciado sesión y que no has llegado al límite de uso |
+| Un agente da un error | Se lanza una segunda vez sola. Si vuelve a fallar, esa familia sale como «No revisada» |
 | Un agente se detiene por tiempo | Dale más segundos: `LIMITE=300 bash auditar.sh …` |
 | No puede copiar el repositorio | Comprueba la dirección, la rama y que sea público |
 

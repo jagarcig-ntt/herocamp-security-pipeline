@@ -97,34 +97,45 @@ find "$COPIA" -type l -exec rm -f {} + 2>/dev/null   # los enlaces podrían apun
 
 # --- Los agentes ---
 # Solo pueden leer y buscar dentro de la copia. No cargan la configuración del repositorio revisado.
+# Claude Code valida la respuesta con este esquema antes de devolverla.
+ESQUEMA='{"type":"object","properties":{"family":{"type":"integer"},"findings":{"type":"array","items":{"type":"object","properties":{"severity":{"type":"string","enum":["CRITICAL","HIGH","MEDIUM"]},"title":{"type":"string"},"location":{"type":"string"},"why":{"type":"string"},"action":{"type":"string"}},"required":["severity","title","location","why","action"]}}},"required":["family","findings"]}'
+
 agente() {
-  local n="$1" inicio pid espera=0 respuesta="$RESPUESTAS/familia-$1.json"
+  local n="$1" intento inicio pid motivo respuesta="$RESPUESTAS/familia-$1.json"
   inicio=$(date +%s)
   echo "  ▶ $n · ${NOMBRES[$n]}"
-  (cd "$COPIA" && exec claude -p "Revisa el repositorio de la carpeta actual. Devuelve solo el JSON." \
-    --system-prompt-file "$AQUI/agentes/${FICHEROS[$n]}" \
-    --safe-mode --restricted --strict-mcp-config --no-session-persistence \
-    --tools "Read,Glob,Grep" --allowedTools "Read,Glob,Grep" \
-    --model "$MODELO" --output-format json) </dev/null >"$respuesta" 2>"$RESPUESTAS/error-$n.txt" &
-  pid=$!
-  trap 'kill "$pid" 2>/dev/null; exit 1' TERM
-  while kill -0 "$pid" 2>/dev/null; do
-    if [ "$(( $(date +%s) - inicio ))" -ge "$LIMITE" ]; then
-      kill "$pid" 2>/dev/null; sleep 1; kill -9 "$pid" 2>/dev/null
-      wait "$pid" 2>/dev/null
+  for intento in 1 2; do
+    (cd "$COPIA" && exec claude -p "Revisa el repositorio de la carpeta actual. Devuelve solo el JSON." \
+      --system-prompt-file "$AQUI/agentes/${FICHEROS[$n]}" \
+      --safe-mode --restricted --strict-mcp-config --no-session-persistence \
+      --tools "Read,Glob,Grep" --allowedTools "Read,Glob,Grep" \
+      --model "$MODELO" --output-format json --json-schema "$ESQUEMA") \
+      </dev/null >"$respuesta" 2>"$RESPUESTAS/error-$n.txt" &
+    pid=$!
+    trap 'kill "$pid" 2>/dev/null; exit 1' TERM
+    while kill -0 "$pid" 2>/dev/null; do
+      if [ "$(( $(date +%s) - inicio ))" -ge "$LIMITE" ]; then
+        kill "$pid" 2>/dev/null; sleep 1; kill -9 "$pid" 2>/dev/null
+        wait "$pid" 2>/dev/null
+        : >"$respuesta"
+        echo "  ✖ $n · ${NOMBRES[$n]}: más de $LIMITE s, se detiene"
+        return
+      fi
+      sleep 1
+    done
+    if wait "$pid"; then
+      if motivo=$(node "$AQUI/scripts/informe.mjs" --validar "$respuesta" --familias "$n"); then
+        echo "  ✔ $n · ${NOMBRES[$n]}: $(( $(date +%s) - inicio )) s"
+        return
+      fi
+    else
       : >"$respuesta"
-      echo "  ✖ $n · ${NOMBRES[$n]}: más de $LIMITE s, se detiene"
-      return
+      motivo="Claude Code ha terminado con un error"
     fi
-    sleep 1
+    [ "$intento" = 2 ] || echo "  ↻ $n · ${NOMBRES[$n]}: $motivo. Segundo intento"
   done
-  if wait "$pid"; then
-    echo "  ✔ $n · ${NOMBRES[$n]}: $(( $(date +%s) - inicio )) s"
-  else
-    : >"$RESPUESTAS/fallo-$n"
-    echo "  ✖ $n · ${NOMBRES[$n]}: ha fallado"
-    head -n 3 "$RESPUESTAS/error-$n.txt" | sed 's/^/      /'
-  fi
+  echo "  ✖ $n · ${NOMBRES[$n]}: $motivo"
+  head -n 3 "$RESPUESTAS/error-$n.txt" | sed 's/^/      /'
 }
 
 COMIENZO=$(date +%s)
@@ -132,7 +143,6 @@ echo "Revisando $PROYECTO con Claude Code ($MODELO):"
 for n in $LISTA; do agente "$n" & PIDS="$PIDS $!"; done
 wait
 PIDS=""
-for n in $LISTA; do [ ! -f "$RESPUESTAS/fallo-$n" ] || : >"$RESPUESTAS/familia-$n.json"; done
 
 # --- El informe ---
 INFORME="$PWD/security-report${FAMILIA:+-f$FAMILIA}.md"
